@@ -1,0 +1,63 @@
+name: Carrossel automático
+
+# Quem dispara: o cron-job.org, de hora em hora (via API do GitHub).
+# O agendamento abaixo é só reserva: o do GitHub atrasa e é desligado após 60 dias sem atividade.
+on:
+  workflow_dispatch:
+    inputs:
+      post_id:
+        description: 'ID de uma matéria pra refazer (vazio = só as novas)'
+        required: false
+      modo:
+        description: 'publicar ou rascunho (vazio = o configurado no repositório)'
+        required: false
+  schedule:
+    - cron: '41 */3 * * *'
+
+permissions:
+  contents: write
+
+# Nunca roda duas vezes ao mesmo tempo (evita post duplicado)
+concurrency:
+  group: carrossel
+  cancel-in-progress: false
+
+jobs:
+  carrossel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_API_HOST: ${{ vars.IG_API_HOST }}
+      CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+      MODO: ${{ inputs.modo || vars.MODO }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configurar git
+        run: |
+          git config user.name "MathSeo robô"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Tem matéria nova?
+        id: checar
+        if: ${{ !inputs.post_id }}
+        run: node src/rodar.mjs --checar
+
+      - name: Instalar o navegador
+        if: ${{ inputs.post_id || steps.checar.outputs.novos > 0 }}
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Fazer e publicar os carrosséis
+        if: ${{ inputs.post_id || steps.checar.outputs.novos > 0 }}
+        env:
+          POST_ID: ${{ inputs.post_id }}
+        run: node src/rodar.mjs ${POST_ID:+--post "$POST_ID"}

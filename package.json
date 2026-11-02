@@ -1,0 +1,13 @@
+{
+  "name": "excelencia-carrossel-auto",
+  "private": true,
+  "type": "module",
+  "description": "Carrossel automático do Instagram do Excelência Notícias a partir das matérias do site",
+  "scripts": {
+    "checar": "node src/rodar.mjs --checar",
+    "rodar": "node src/rodar.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.64.1"
+  }
+}
