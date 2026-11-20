@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { montarHtml, SCRIPT_AJUSTE } from './modelo.mjs';
+import { montarHtml, SCRIPT_AJUSTE, PALETAS, NOMES_PALETAS } from './modelo.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = process.env.SITE_URL || 'https://excelencianoticias.com.br';
@@ -91,8 +91,10 @@ const FERRAMENTA = {
   description: 'Entrega o roteiro do carrossel de Instagram e a legenda do post.',
   input_schema: {
     type: 'object',
-    required: ['slides', 'legenda', 'hashtags'],
+    required: ['slides', 'legenda', 'hashtags', 'paleta'],
     properties: {
+      paleta: { type: 'string', enum: NOMES_PALETAS,
+        description: 'Cores do carrossel, escolhidas pelo tema da matéria. Não pode ser a mesma do carrossel anterior (informada no pedido). Opções: ' + NOMES_PALETAS.map(n => `${n} = ${PALETAS[n].uso}`).join('; ') + '.' },
       slides: {
         type: 'array', minItems: 5, maxItems: 8,
         description: 'Primeiro slide sempre "capa", último sempre "final". Entre eles, 3 a 6 slides variando os tipos conforme o conteúdo pedir.',
@@ -102,7 +104,7 @@ const FERRAMENTA = {
             tipo: { type: 'string', enum: ['capa', 'texto', 'foto', 'lista', 'citacao', 'numero', 'final'],
               description: 'capa: foto grande + manchete. texto: título + parágrafo (+ foto opcional). foto: foto grande + título curto. lista: 3 a 5 itens curtos. citacao: frase dita por alguém na matéria, entre aspas no original. numero: um número marcante da matéria. final: chamada para a matéria completa.' },
             kicker: { type: 'string', description: 'Rótulo curto em caixa alta, até 28 caracteres. Na capa: editoria · cidade (ex: "Saúde · Niquelândia").' },
-            titulo: { type: 'string', description: 'capa: manchete de até 75 caracteres. demais: até 80 caracteres. citacao: só a frase, sem aspas, copiada da matéria, até 120 caracteres.' },
+            titulo: { type: 'string', description: 'capa: o título da matéria exatamente como está no portal, sem reescrever. demais: até 80 caracteres. citacao: só a frase, sem aspas, copiada da matéria, até 120 caracteres.' },
             destaque: { type: 'string', description: 'Trecho exato do título (2 a 5 palavras) que ganha cor. Opcional.' },
             texto: { type: 'string', description: 'Parágrafo de apoio. capa: até 140 caracteres. texto/foto: até 320. lista/numero/citacao: até 220. final: até 140.' },
             itens: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Só no tipo lista. Cada item até 60 caracteres.' },
@@ -136,11 +138,13 @@ Regras inegociáveis:
 - Cada slide conta uma parte da notícia; não repita a mesma informação em dois slides.
 - Respeite os limites de caracteres de cada campo: o texto precisa caber no slide.`;
 
-async function escreverRoteiro(m) {
+async function escreverRoteiro(m, paletaAnterior) {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('Falta ANTHROPIC_API_KEY');
   const listaFotos = m.fotos.map((f, i) => `${i}: ${f.legenda || '(sem legenda)'}`).join('\n') || '(matéria sem fotos)';
   const pedido = `Matéria publicada em ${m.data.slice(0, 10)} — ${m.link}
 Editorias: ${m.categorias.join(', ') || '—'}
+
+PALETA DO CARROSSEL ANTERIOR (não repetir): ${paletaAnterior || 'nenhuma'}
 
 TÍTULO: ${m.titulo}
 
@@ -180,9 +184,14 @@ ${listaFotos}`;
   }
   // Garante capa no começo e final no fim, e no máximo 10 slides (limite do Instagram)
   const s = roteiro.slides.filter(x => x && x.titulo);
-  if (s[0]?.tipo !== 'capa') s.unshift({ tipo: 'capa', titulo: m.titulo.slice(0, 90), foto: 0 });
+  if (s[0]?.tipo !== 'capa') s.unshift({ tipo: 'capa', titulo: m.titulo, foto: 0 });
+  s[0].titulo = m.titulo; // capa sempre com o título original da matéria (pedido do fundador, 04/11/2026)
   if (s.at(-1)?.tipo !== 'final') s.push({ tipo: 'final', titulo: 'Acompanhe o Excelência Notícias', texto: 'Notícias do Norte de Goiás todos os dias.' });
   roteiro.slides = s.slice(0, 9).concat(s.length > 10 ? [s.at(-1)] : s.slice(9));
+  // Cor: a que o Claude escolheu pelo tema; se faltar ou repetir a anterior, a próxima do rodízio (pedido do cliente, 20/11/2026)
+  if (!PALETAS[roteiro.paleta] || roteiro.paleta === paletaAnterior) {
+    roteiro.paleta = NOMES_PALETAS[(NOMES_PALETAS.indexOf(paletaAnterior) + 1) % NOMES_PALETAS.length];
+  }
   return roteiro;
 }
 
@@ -298,9 +307,10 @@ async function processar(p, estado) {
   m.fotos = m.fotos.filter(f => f.arquivo);
 
   log('  escrevendo o roteiro…');
-  const roteiro = await escreverRoteiro(m);
+  const roteiro = await escreverRoteiro(m, estado.ultimaPaleta);
+  log(`  cores: ${roteiro.paleta}`);
   const legenda = montarLegenda(roteiro, m);
-  await writeFile(join(pasta, 'carrossel.html'), montarHtml(roteiro, m.fotos));
+  await writeFile(join(pasta, 'carrossel.html'), montarHtml(roteiro, m.fotos, roteiro.paleta));
   await writeFile(join(pasta, 'roteiro.json'), JSON.stringify({ materia: { ...m, texto: undefined }, roteiro }, null, 2));
   await writeFile(join(pasta, 'legenda.txt'), legenda + '\n');
 
@@ -323,6 +333,7 @@ async function processar(p, estado) {
   } else {
     log('  modo rascunho: não publicou no Instagram');
   }
+  estado.ultimaPaleta = roteiro.paleta;
   estado.publicados.push(registro);
 }
 

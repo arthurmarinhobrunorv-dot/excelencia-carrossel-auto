@@ -13,6 +13,7 @@ cron-job.org (de hora em hora)
 ```
 
 - `estado.json` guarda as matérias que já viraram carrossel (nunca posta duas vezes).
+- **Cores variam (pedido do cliente, 20/11/2026):** cada carrossel usa uma das 6 paletas de `src/modelo.mjs` (`portal`, `verde`, `vinho`, `petroleo`, `terracota`, `royal`). O Claude escolhe pela cara da matéria e nunca repete a do carrossel anterior (`ultimaPaleta` no `estado.json`); se ele não escolher, vai a próxima do rodízio. A logo do portal não muda. Paleta nova: acrescentar em `PALETAS`, com o `uso` explicando os temas.
 - Matéria com mais de 2 dias é ignorada. No máximo 3 carrosséis por rodada.
 - Se der erro, tenta de novo na próxima rodada (até 3 vezes) e o GitHub manda e-mail avisando.
 - Sem a chave do Claude, o robô só espera. Sem as chaves do Instagram, ele roda em **rascunho**: faz os slides e salva em `posts/`, mas não publica.

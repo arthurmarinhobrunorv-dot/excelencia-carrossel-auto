@@ -1,5 +1,7 @@
 // Monta o HTML do carrossel a partir do roteiro que o Claude escreveu.
-// Estilo: o mesmo do carrossel do Outubro Rosa (Inter, azul e magenta do logo do portal), 1080x1350.
+// Estilo: o mesmo do carrossel do Outubro Rosa (Inter), 1080x1350.
+// Cores: cada carrossel usa uma das PALETAS abaixo, escolhida pelo tema e sem repetir a do anterior
+// (pedido do cliente, 20/11/2026: não ficar só no rosa e azul). A logo do portal não muda.
 
 const esc = (s = '') => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -10,11 +12,28 @@ function realce(titulo = '', destaque = '') {
   return d && t.includes(d) ? t.replace(d, `<em>${d}</em>`) : t;
 }
 
-const MATHSEO_ESCURO = `<span class="mathseo"><svg viewBox="4 2 41 40" aria-hidden="true"><defs><linearGradient id="mathseo-g" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="40"><stop offset=".35" stop-color="#E4FF3A"/><stop offset="1" stop-color="#FF5C39"/></linearGradient></defs><path d="M8 38V12l16 18 16-18v26" fill="none" stroke="url(#mathseo-g)" stroke-width="4.4" stroke-linejoin="round" stroke-linecap="round"/><circle cx="40" cy="6.5" r="3" fill="url(#mathseo-g)"/></svg>Design por MathSeo</span>`;
+// escuro: fundo dos slides escuros · cor: fundo da cor (slide final) e números no claro
+// destaque: realce em fundo escuro · claro: fundo claro · corpo: texto no claro · rgb: o escuro em r,g,b
+export const PALETAS = {
+  portal:   { escuro: '#082A45', cor: '#9B2061', destaque: '#EE6AA7', claro: '#F1F4F8', corpo: '#3D4B5C', rgb: '8,42,69',
+              uso: 'azul-marinho e magenta, as cores do portal. Saúde da mulher, assuntos gerais' },
+  verde:    { escuro: '#0F2E1F', cor: '#1E7A46', destaque: '#F2C230', claro: '#F7F2E4', corpo: '#3E4A40', rgb: '15,46,31',
+              uso: 'verde e dourado. Meio ambiente, agro, campo, mineração, cultura afro-brasileira, esporte' },
+  vinho:    { escuro: '#2A0F16', cor: '#8C2131', destaque: '#F29A4A', claro: '#FAF1EA', corpo: '#4A3A3A', rgb: '42,15,22',
+              uso: 'vinho e laranja. Política, Câmara, justiça, opinião, crime e polícia' },
+  petroleo: { escuro: '#0B2B33', cor: '#0E7480', destaque: '#FFB84D', claro: '#EEF6F6', corpo: '#3A4B4F', rgb: '11,43,51',
+              uso: 'azul-petróleo e laranja. Água, saneamento, saúde pública, hospital, tecnologia' },
+  terracota:{ escuro: '#2B1A12', cor: '#A8481F', destaque: '#F2C78A', claro: '#F8F0E6', corpo: '#4A3B32', rgb: '43,26,18',
+              uso: 'terracota e areia. Obras, estradas, comércio, feira, economia, história' },
+  royal:    { escuro: '#0A1F4D', cor: '#2155C4', destaque: '#7CC4FF', claro: '#F0F4FB', corpo: '#3D4B5C', rgb: '10,31,77',
+              uso: 'azul royal e celeste. Educação, escola, emprego, documentos, serviços, Novembro Azul' },
+};
+export const NOMES_PALETAS = Object.keys(PALETAS);
+
+const MATHSEO_ESCURO = `<span class="mathseo"><svg viewBox="4 2 41 40" aria-hidden="true"><path d="M8.1 39.55V11.55h4.63L24.6 25.47 36.47 11.55h4.63v28h-4V16.98L24.6 31.63 12.1 16.98v22.57z" fill="#D4EC6A"/><circle cx="39.1" cy="6.05" r="2.3" fill="#D4EC6A"/></svg>Design por MathSeo · (64) 9247-9770</span>`;
 
 const CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--navy:#082A45;--magenta:#9B2061;--rosa:#EE6AA7;--claro:#F1F4F8;--branco:#FAFAF7;--corpo:#3D4B5C}
 body{background:#d9d9d9;font-family:Inter,sans-serif;display:flex;flex-direction:column;align-items:center;gap:40px;padding:40px 0;-webkit-font-smoothing:antialiased}
 .slide{--e:1;width:1080px;height:1350px;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:72px 84px}
 .dark{background:var(--navy);color:var(--branco)}
@@ -22,11 +41,11 @@ body{background:#d9d9d9;font-family:Inter,sans-serif;display:flex;flex-direction
 .mag{background:var(--magenta);color:var(--branco)}
 .conteudo{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;z-index:2;overflow:hidden}
 
-.topo{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2;min-height:58px;flex:none}
-.topo img{height:58px;display:block}
+.topo{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2;min-height:116px;flex:none}
+.topo img{height:116px;display:block}
 .contador{font-size:16px;font-weight:600;letter-spacing:.18em}
 .dark .contador,.mag .contador{color:rgba(250,250,247,.7)}
-.light .contador{color:rgba(8,42,69,.6)}
+.light .contador{color:rgba(var(--rgb),.6)}
 
 .kicker{font-size:15px;font-weight:800;letter-spacing:.26em;text-transform:uppercase}
 .dark .kicker{color:var(--rosa)}
@@ -48,7 +67,7 @@ em{font-style:normal}
 
 .credito{font-size:13px;font-weight:500;letter-spacing:.03em;margin-top:12px;flex:none}
 .dark .credito{color:rgba(250,250,247,.55)}
-.light .credito{color:rgba(8,42,69,.55)}
+.light .credito{color:rgba(var(--rgb),.55)}
 .rodape{display:flex;justify-content:space-between;align-items:center;padding-top:24px;font-size:17px;font-weight:600;flex:none;position:relative;z-index:2;gap:24px}
 .dark .rodape{border-top:1px solid rgba(255,255,255,.12)}
 
@@ -57,7 +76,7 @@ em{font-style:normal}
 
 /* capa e foto grande */
 .foto-topo{position:absolute;top:0;left:0;right:0;background-size:cover;background-position:center 30%}
-.foto-topo::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(8,42,69,.7) 0%,rgba(8,42,69,0) 20%,rgba(8,42,69,0) 45%,rgba(8,42,69,.85) 82%,var(--navy) 100%)}
+.foto-topo::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(var(--rgb),.7) 0%,rgba(var(--rgb),0) 20%,rgba(var(--rgb),0) 45%,rgba(var(--rgb),.85) 82%,var(--navy) 100%)}
 .capa .foto-topo{height:820px}
 .fotogrande .foto-topo{height:640px}
 .embaixo{margin-top:auto}
@@ -76,7 +95,7 @@ em{font-style:normal}
 
 /* citação */
 .meio{flex:1;display:flex;flex-direction:column;justify-content:center}
-.aspas{font-family:Georgia,'Times New Roman',serif;font-size:300px;font-weight:700;line-height:.7;color:var(--rosa);height:150px;margin:0 0 56px -8px;flex:none}
+.aspas{font-family:Georgia,'Times New Roman',serif;font-size:150px;font-weight:700;line-height:.7;color:var(--rosa);height:70px;margin:0 0 40px -4px;flex:none}
 .citacao h2{font-size:calc(62px*var(--e))}
 .autor{display:flex;align-items:center;gap:26px}
 .avatar{width:132px;height:132px;border-radius:50%;background-size:cover;background-position:center 25%;border:3px solid var(--rosa);flex:none}
@@ -111,7 +130,9 @@ for (const s of document.querySelectorAll('.slide')) {
   while (c && c.scrollHeight > c.clientHeight + 1 && e > 0.62) { e -= 0.03; s.style.setProperty('--e', e); }
 }`;
 
-export function montarHtml(roteiro, fotos) {
+export function montarHtml(roteiro, fotos, nomePaleta = 'portal') {
+  const pl = PALETAS[nomePaleta] || PALETAS.portal;
+  const cores = `:root{--navy:${pl.escuro};--magenta:${pl.cor};--rosa:${pl.destaque};--claro:${pl.claro};--branco:#FAFAF7;--corpo:${pl.corpo};--rgb:${pl.rgb}}`;
   const total = roteiro.slides.length;
   const url = i => (Number.isInteger(i) && fotos[i] ? `fotos/${fotos[i].arquivo}` : null);
   const cred = i => {
@@ -132,7 +153,7 @@ export function montarHtml(roteiro, fotos) {
   ${topo(n, 'dark')}
   <div class="conteudo"><div class="embaixo">
     ${s.kicker ? `<span class="tag">${esc(s.kicker)}</span>` : ''}
-    <h1>${realce(s.titulo, s.destaque)}</h1>
+    <h1 style="font-size:calc(84px*var(--e)*${s.titulo.length > 110 ? .68 : s.titulo.length > 80 ? .8 : 1})">${realce(s.titulo, s.destaque)}</h1>
     ${s.texto ? `<p>${esc(s.texto)}</p>` : ''}
   </div></div>
   <div class="rodape"><span>@excelencianoticias</span><span class="arraste">Arraste para o lado →</span></div>
@@ -223,7 +244,7 @@ export function montarHtml(roteiro, fotos) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style>${CSS}</style>
+<style>${cores}${CSS}</style>
 </head>
 <body>
 ${slides.join('\n\n')}
